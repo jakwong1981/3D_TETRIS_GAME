@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tetracube Well · Hong Kong</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <canvas id="scene" aria-label="3D tetracube well"></canvas>
+
+    <p class="legend" id="legend">
+      ←→↑↓ move · A / S / Z rotate X / Y / Z axis (Shift = reverse) · Shift soft drop · Space hard drop · C
+      hold · Q / E or drag camera · R reset · Esc pause · M music · Full X/Y row clears, same-colour row ×2 /
+      XY ×4 / XYZ ×8
+    </p>
+
+    <aside class="hud" id="hud" aria-live="polite" hidden>
+      <dl>
+        <div>
+          <dt>Score</dt>
+          <dd id="hud-score">0</dd>
+        </div>
+        <div>
+          <dt>Level</dt>
+          <dd id="hud-level">1</dd>
+        </div>
+        <div>
+          <dt>Lines</dt>
+          <dd id="hud-lines">0</dd>
+        </div>
+        <div>
+          <dt>Layers</dt>
+          <dd id="hud-layers">0</dd>
+        </div>
+        <div>
+          <dt>Time</dt>
+          <dd id="hud-time">0:00</dd>
+        </div>
+        <div id="hud-pieces-row" hidden>
+          <dt>Pieces left</dt>
+          <dd id="hud-pieces">0</dd>
+        </div>
+      </dl>
+      <p class="hud-label">Falling</p>
+      <canvas
+        class="preview"
+        id="hud-preview"
+        aria-label="Falling piece preview, follows rotation and camera"
+      ></canvas>
+      <p class="hud-label">Next</p>
+      <ol class="queue" id="hud-next"></ol>
+      <p class="hud-label">Hold</p>
+      <p class="queue-item" id="hud-hold">—</p>
+      <p class="hud-preset" id="hud-preset"></p>
+      <button type="button" class="music-toggle" id="music-toggle" aria-pressed="true">♪ Music on (M)</button>
+    </aside>
+
+    <p class="clear-banner" id="clear-banner" role="status" aria-live="polite" hidden></p>
+
+    <nav class="move-pad" id="move-pad" aria-label="Move piece" hidden>
+      <button type="button" class="pad-up" data-shift="ArrowUp" aria-label="Move up">▲</button>
+      <button type="button" class="pad-left" data-shift="ArrowLeft" aria-label="Move left">◀</button>
+      <button type="button" class="pad-right" data-shift="ArrowRight" aria-label="Move right">▶</button>
+      <button type="button" class="pad-down" data-shift="ArrowDown" aria-label="Move down">▼</button>
+    </nav>
+
+    <section class="panel" id="menu" aria-labelledby="menu-title">
+      <h1 id="menu-title">Tetracube Well</h1>
+      <p class="subtitle">3D 俄羅斯方塊 · Hong Kong</p>
+      <form id="menu-form" novalidate>
+        <label
+          >Player name
+          <input id="player-name" name="playerName" autocomplete="nickname" maxlength="16" required />
+        </label>
+        <p class="error" id="name-error" role="alert"></p>
+        <label
+          >Mode
+          <select id="mode">
+            <option value="marathon">Marathon</option>
+            <option value="sprint">Sprint · 20 lines</option>
+            <option value="puzzle">Puzzle</option>
+          </select>
+        </label>
+        <label id="difficulty-field"
+          >Difficulty
+          <select id="difficulty">
+            <option value="easy">Easy · 10×10</option>
+            <option value="normal" selected>Normal · 10×10</option>
+            <option value="hard">Hard · 10×10</option>
+          </select>
+        </label>
+        <label
+          >Backdrop
+          <select id="backdrop"></select>
+        </label>
+        <label id="puzzle-field" hidden
+          >Puzzle
+          <select id="puzzle"></select>
+        </label>
+        <div class="actions">
+          <button type="submit" class="primary">Start</button>
+          <button type="button" id="open-ranking">Rankings</button>
+        </div>
+      </form>
+      <p class="note">Casual ranking: names are not verified.</p>
+    </section>
+
+    <section class="panel" id="over" hidden aria-labelledby="over-title">
+      <h2 id="over-title">Game over</h2>
+      <p class="result" id="over-result"></p>
+      <p class="note" id="over-status"></p>
+      <div class="actions">
+        <button type="button" class="primary" id="again">Play again (R)</button>
+        <button type="button" id="over-ranking">Rankings</button>
+        <button type="button" id="over-menu">Menu</button>
+      </div>
+    </section>
+
+    <section class="panel" id="paused" hidden>
+      <h2>Paused</h2>
+      <p class="note">Esc to resume</p>
+    </section>
+
+    <section class="panel wide" id="ranking" hidden aria-labelledby="ranking-title">
+      <h2 id="ranking-title">Rankings</h2>
+      <div class="filters">
+        <select id="rank-mode" aria-label="Mode">
+          <option value="marathon">Marathon</option>
+          <option value="sprint">Sprint</option>
+          <option value="puzzle">Puzzle</option>
+        </select>
+        <select id="rank-difficulty" aria-label="Difficulty">
+          <option value="easy">Easy</option>
+          <option value="normal" selected>Normal</option>
+          <option value="hard">Hard</option>
+        </select>
+        <select id="rank-period" aria-label="Period">
+          <option value="all">All time</option>
+          <option value="week">This week</option>
+          <option value="day">Today</option>
+        </select>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Player</th>
+            <th id="rank-metric">Score</th>
+            <th>Lines</th>
+            <th>Layers</th>
+          </tr>
+        </thead>
+        <tbody id="rank-body"></tbody>
+      </table>
+      <p class="note" id="rank-status"></p>
+      <h3>Your recent rounds</h3>
+      <ul class="history" id="history"></ul>
+      <div class="actions"><button type="button" id="close-ranking">Close</button></div>
+    </section>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

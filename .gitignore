@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-server
+.env
+coverage
+# Local-test wallpaper (third-party copyright) — not for commit
+src/game/assets/backgrounds/car.jpg
+src/game/assets/backgrounds/tetris.jpg
+src/game/assets/backgrounds/hong-kong-night.jpg

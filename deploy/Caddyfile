@@ -1,0 +1,31 @@
+{
+	# Local/LAN: Caddy's own CA issues the cert (tls internal).
+	# Public domain: set SITE_ADDRESS=game.example.com and TLS_MODE to an email -> Let's Encrypt.
+	email {$ACME_EMAIL:admin@localhost}
+}
+
+{$SITE_ADDRESS:localhost} {
+	tls {$TLS_MODE:internal}
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'"
+	}
+
+	handle /api/* {
+		reverse_proxy api:3000 {
+			header_up X-Forwarded-Proto https
+		}
+	}
+
+	handle {
+		root * /srv
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}
