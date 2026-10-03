@@ -40,3 +40,31 @@ export const KICK_OFFSETS: readonly Vec3[] = [
   vec3(0, -2, 0),
   vec3(0, 0, 1),
 ];
+
+export interface Turn {
+  axis: Axis;
+  dir: Direction;
+}
+
+/**
+ * "Vertical" turn as seen by the player: rotate about the grid axis that runs left↔right on screen,
+ * in the direction that tips the piece's top away from the viewer (up → away).
+ * `right` and `away` are perpendicular unit grid steps in the floor plane.
+ */
+export function tipAwayTurn(right: { dx: number; dy: number }, away: { dx: number; dy: number }): Turn {
+  const axis: Axis = right.dx !== 0 ? 'x' : 'y';
+  const up = vec3(0, 0, 1);
+  const tipped = rotateOffset(up, axis, 1);
+  const matches = tipped.x === away.dx && tipped.y === away.dy;
+  return { axis, dir: matches ? 1 : -1 };
+}
+
+/** "Horizontal" turn: a quarter spin about the vertical (grid z) axis. */
+export const SPIN_TURN: Turn = { axis: 'z', dir: 1 };
+
+/**
+ * 2D board turns, seen from the front (screen right = +x, up = +z, viewer on +y): rotating about
+ * grid y with s = +1 sends the top cell (0,0,1) to (1,0,0), i.e. clockwise.
+ */
+export const PLANAR_CLOCKWISE: Turn = { axis: 'y', dir: 1 };
+export const PLANAR_COUNTER_CLOCKWISE: Turn = { axis: 'y', dir: -1 };

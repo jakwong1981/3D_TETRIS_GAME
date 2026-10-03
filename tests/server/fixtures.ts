@@ -5,6 +5,7 @@ export function validRound(overrides: Partial<SubmitRoundRequest> = {}): SubmitR
     playerName: 'Ada',
     mode: 'marathon',
     difficulty: 'normal',
+    dimension: '3d',
     score: 1200,
     layersCleared: 1,
     linesCleared: 14,

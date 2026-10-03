@@ -1,4 +1,4 @@
-import { playerNameSchema, type Difficulty, type GameMode } from '../../shared/contracts';
+import { playerNameSchema, type Difficulty, type Dimension, type GameMode } from '../../shared/contracts';
 import { PUZZLES } from '../domain/puzzles';
 import {
   BACKGROUND_IMAGES,
@@ -13,6 +13,7 @@ export interface MenuChoice {
   playerName: string;
   mode: GameMode;
   difficulty: Difficulty;
+  dimension: Dimension;
   puzzleIndex: number;
   backdrop: BackdropChoice;
 }
@@ -23,6 +24,8 @@ export class MenuView {
   private readonly name = byId('player-name', HTMLInputElement);
   private readonly nameError = byId('name-error', HTMLElement);
   private readonly mode = byId('mode', HTMLSelectElement);
+  private readonly dimension = byId('dimension', HTMLSelectElement);
+  private readonly puzzleOption = this.mode.querySelector<HTMLOptionElement>('option[value="puzzle"]');
   private readonly difficulty = byId('difficulty', HTMLSelectElement);
   private readonly difficultyField = byId('difficulty-field', HTMLElement);
   private readonly puzzle = byId('puzzle', HTMLSelectElement);
@@ -32,7 +35,15 @@ export class MenuView {
   constructor(
     initialName: string,
     initialBackdrop: BackdropChoice,
-    handlers: { onStart: (choice: MenuChoice) => void; onRanking: (choice: MenuChoice) => void },
+    initialDimension: Dimension,
+    handlers: {
+      onStart: (choice: MenuChoice) => void;
+      onRanking: (choice: MenuChoice) => void;
+      /** Fires as soon as the backdrop select changes, so the scene behind the menu previews it. */
+      onBackdropChange: (backdrop: BackdropChoice) => void;
+      /** Fires when 2D / 3D changes, so the board behind the menu previews it. */
+      onDimensionChange: (dimension: Dimension) => void;
+    },
   ) {
     this.name.value = initialName;
     this.backdrop.replaceChildren(
@@ -44,7 +55,14 @@ export class MenuView {
     this.puzzle.replaceChildren(
       ...PUZZLES.map((p, i) => new Option(`${i + 1}. ${p.name} (${p.size}×${p.size})`, String(i))),
     );
+    this.dimension.value = initialDimension;
     this.mode.addEventListener('change', () => this.syncModeFields());
+    this.dimension.addEventListener('change', () => {
+      this.syncModeFields();
+      handlers.onDimensionChange(this.dimension.value as Dimension);
+    });
+    // 'input' also fires while arrowing through a focused select, so each option previews live.
+    this.backdrop.addEventListener('input', () => handlers.onBackdropChange(this.backdrop.value));
     this.form.addEventListener('submit', (e) => {
       e.preventDefault();
       const choice = this.readValidChoice();
@@ -74,6 +92,7 @@ export class MenuView {
       playerName: this.name.value.trim(),
       mode: this.mode.value as GameMode,
       difficulty: this.difficulty.value as Difficulty,
+      dimension: this.dimension.value as Dimension,
       puzzleIndex: Number(this.puzzle.value),
       backdrop: this.backdrop.value,
     };
@@ -87,6 +106,10 @@ export class MenuView {
   }
 
   private syncModeFields(): void {
+    // Puzzles are built for 3D wells, so 2D offers marathon and sprint only.
+    const planar = this.dimension.value === '2d';
+    if (this.puzzleOption) this.puzzleOption.disabled = planar;
+    if (planar && this.mode.value === 'puzzle') this.mode.value = 'marathon';
     const isPuzzle = this.mode.value === 'puzzle';
     this.puzzleField.hidden = !isPuzzle;
     this.difficultyField.hidden = isPuzzle;

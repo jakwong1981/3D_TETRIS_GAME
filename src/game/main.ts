@@ -3,11 +3,12 @@ import { GameSession, type RoundResult, type SessionEvent } from './application/
 import { CLIENT_VERSION, TUNING } from './config/tuning';
 import { PUZZLES } from './domain/puzzles';
 import { createSeededRandom } from './domain/random';
+import { PLANAR_CLOCKWISE, PLANAR_COUNTER_CLOCKWISE, SPIN_TURN, tipAwayTurn } from './domain/rotation';
 import { PIECE_DEFINITIONS } from './domain/tetracube';
 import { AudioSynth } from './infrastructure/audio-synth';
 import { InputMapper } from './infrastructure/input-mapper';
 import { ScoreApi, ScoreApiError } from './infrastructure/score-api';
-import { backdropStorage, musicStorage, playerNameStorage } from './infrastructure/storage';
+import { backdropStorage, dimensionStorage, musicStorage, playerNameStorage } from './infrastructure/storage';
 import { GameRenderer } from './presentation/game-renderer';
 import { byId, formatDuration } from './ui/dom';
 import { HudView } from './ui/hud-view';
@@ -30,25 +31,38 @@ const hud = new HudView();
 const ranking = new RankingView(api);
 const overPanel = byId('over', HTMLElement);
 const pausedPanel = byId('paused', HTMLElement);
+const legend = byId('legend', HTMLElement);
+const LEGEND_3D = legend.textContent?.trim().replace(/\s+/g, ' ') ?? '';
+const LEGEND_2D =
+  '← → move · ↑ or X rotate clockwise · Z rotate counter-clockwise · ↓ or Shift soft drop · Space hard drop · ' +
+  'C hold · R reset · Esc pause · M music · Full row clears, same-colour row ×2, stacked same-colour rows ×4';
 
 let choice: MenuChoice = {
   playerName: playerNameStorage.read(),
   mode: 'marathon',
   difficulty: 'normal',
+  dimension: dimensionStorage.read(),
   puzzleIndex: 0,
   backdrop: backdropStorage.read(),
 };
-let session = createSession(choice);
+let session = createSession(choice, false);
 let roundActive = false;
 
-const menu = new MenuView(choice.playerName, choice.backdrop, {
+const menu = new MenuView(choice.playerName, choice.backdrop, choice.dimension, {
   onStart: (selected) => {
     choice = selected;
     playerNameStorage.write(selected.playerName);
     backdropStorage.write(selected.backdrop);
-    startRound();
+    dimensionStorage.write(selected.dimension);
+    startRound(false); // keep the backdrop already previewed in the menu
   },
   onRanking: (selected) => openRanking(selected, () => menu.show()),
+  onBackdropChange: (backdrop) => renderer.setBackdrop(backdrop),
+  // Preview the chosen board behind the menu (the idle session is never ticked).
+  onDimensionChange: (dimension) => {
+    choice = { ...choice, dimension };
+    session = createSession(choice, false);
+  },
 });
 
 const input = new InputMapper({
@@ -56,7 +70,19 @@ const input = new InputMapper({
     const { dx, dy } = renderer.rig.screenToGrid(right, away);
     session.move(dx, dy);
   },
-  rotate: (axis, dir) => session.rotate(axis, dir),
+  rotateVertical: () => {
+    if (session.config.dimension === '2d') {
+      session.rotate(PLANAR_CLOCKWISE.axis, PLANAR_CLOCKWISE.dir);
+      return;
+    }
+    const { right, away } = renderer.rig.controlFrame();
+    const turn = tipAwayTurn(right, away);
+    session.rotate(turn.axis, turn.dir);
+  },
+  rotateHorizontal: () => {
+    const turn = session.config.dimension === '2d' ? PLANAR_COUNTER_CLOCKWISE : SPIN_TURN;
+    session.rotate(turn.axis, turn.dir);
+  },
   hardDrop: () => session.hardDrop(),
   hold: () => session.hold(),
   setSoftDrop: (active) => {
@@ -64,7 +90,7 @@ const input = new InputMapper({
   },
   snapCamera: (dir) => renderer.rig.snap(dir),
   reset: () => {
-    if (roundActive || !overPanel.hidden) startRound();
+    if (roundActive || !overPanel.hidden) startRound(true);
   },
   togglePause: () => {
     if (!roundActive) return;
@@ -95,7 +121,7 @@ function renderMusicButton(): void {
 }
 input.bindPad(byId('move-pad', HTMLElement));
 
-byId('again', HTMLButtonElement).addEventListener('click', () => startRound());
+byId('again', HTMLButtonElement).addEventListener('click', () => startRound(true));
 byId('over-menu', HTMLButtonElement).addEventListener('click', () => {
   overPanel.hidden = true;
   menu.show();
@@ -107,26 +133,31 @@ byId('over-ranking', HTMLButtonElement).addEventListener('click', () => {
   });
 });
 
-function createSession(selected: MenuChoice): GameSession {
+function createSession(selected: MenuChoice, rerollBackdrop: boolean): GameSession {
   const seed = crypto.getRandomValues(new Uint32Array(1))[0] ?? 1;
   const created = new GameSession({
     mode: selected.mode,
     difficulty: selected.difficulty,
+    dimension: selected.dimension,
     seed,
     puzzleIndex: selected.puzzleIndex,
   });
   created.onEvent(onSessionEvent);
-  renderer.attach(created, selected.backdrop);
+  renderer.attach(created, selected.backdrop, rerollBackdrop);
   return created;
 }
 
-function startRound(): void {
+/** `rerollBackdrop`: a 'random' backdrop draws a new picture (replays), not on menu start. */
+function startRound(rerollBackdrop: boolean): void {
   menu.hide();
   overPanel.hidden = true;
   pausedPanel.hidden = true;
-  session = createSession(choice);
+  session = createSession(choice, rerollBackdrop);
   roundActive = true;
   input.enabled = true;
+  const planar = choice.dimension === '2d';
+  input.planar = planar;
+  legend.textContent = planar ? LEGEND_2D : LEGEND_3D;
   hud.show(renderer.presetName);
   audio.setMusicLevel(session.level);
   audio.setMusicWanted(true);
@@ -137,6 +168,7 @@ function openRanking(selected: MenuChoice, onClose: () => void): void {
   ranking.open({
     mode: selected.mode,
     difficulty: difficultyFor(selected),
+    dimension: selected.dimension,
     playerName: selected.playerName,
     onClose,
   });

@@ -1,4 +1,4 @@
-import type { Difficulty, GameMode } from '../../shared/contracts';
+import type { Difficulty, Dimension, GameMode } from '../../shared/contracts';
 import type { NewRoundRecord, RoundRecord } from '../domain/round';
 
 /** Keyset position: the last row's sort value and id. Avoids skip() scans on deep pages. */
@@ -11,6 +11,7 @@ export interface RankingCursor {
 export interface RankingFilter {
   mode: GameMode;
   difficulty: Difficulty;
+  dimension: Dimension;
   since: Date | null;
   limit: number;
   after: RankingCursor | null;

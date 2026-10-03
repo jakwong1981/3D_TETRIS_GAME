@@ -1,4 +1,4 @@
-import type { Difficulty, GameMode, RankingPeriod } from '../../shared/contracts';
+import type { Difficulty, Dimension, GameMode, RankingPeriod } from '../../shared/contracts';
 import type { ScoreApi } from '../infrastructure/score-api';
 import { byId, formatDuration } from './dom';
 
@@ -7,6 +7,7 @@ export class RankingView {
   private readonly mode = byId('rank-mode', HTMLSelectElement);
   private readonly difficulty = byId('rank-difficulty', HTMLSelectElement);
   private readonly period = byId('rank-period', HTMLSelectElement);
+  private readonly dimension = byId('rank-dimension', HTMLSelectElement);
   private readonly body = byId('rank-body', HTMLTableSectionElement);
   private readonly metric = byId('rank-metric', HTMLElement);
   private readonly status = byId('rank-status', HTMLElement);
@@ -15,12 +16,19 @@ export class RankingView {
   private onClose: () => void = () => undefined;
 
   constructor(private readonly api: ScoreApi) {
-    for (const select of [this.mode, this.difficulty, this.period])
+    for (const select of [this.dimension, this.mode, this.difficulty, this.period])
       select.addEventListener('change', () => void this.load());
     byId('close-ranking', HTMLButtonElement).addEventListener('click', () => this.close());
   }
 
-  open(params: { mode: GameMode; difficulty: Difficulty; playerName: string; onClose: () => void }): void {
+  open(params: {
+    mode: GameMode;
+    difficulty: Difficulty;
+    dimension: Dimension;
+    playerName: string;
+    onClose: () => void;
+  }): void {
+    this.dimension.value = params.dimension;
     this.mode.value = params.mode;
     this.difficulty.value = params.difficulty;
     this.playerName = params.playerName;
@@ -46,6 +54,7 @@ export class RankingView {
       const page = await this.api.fetchRanking({
         mode,
         difficulty: this.difficulty.value as Difficulty,
+        dimension: this.dimension.value as Dimension,
         period: this.period.value as RankingPeriod,
       });
       this.body.replaceChildren(
@@ -87,7 +96,7 @@ export class RankingView {
         ...page.rounds.map((round) => {
           const item = document.createElement('li');
           const best = page.personalBest?.id === round.id ? ' ★ best' : '';
-          item.textContent = `${round.mode} · ${round.difficulty} · ${round.score.toLocaleString()} pts · ${round.linesCleared} lines · ${round.layersCleared} layers · ${new Date(round.playedAt).toLocaleString()}${best}`;
+          item.textContent = `${round.dimension.toUpperCase()} · ${round.mode} · ${round.difficulty} · ${round.score.toLocaleString()} pts · ${round.linesCleared} lines · ${round.layersCleared} layers · ${new Date(round.playedAt).toLocaleString()}${best}`;
           return item;
         }),
       );

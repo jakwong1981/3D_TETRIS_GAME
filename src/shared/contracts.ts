@@ -4,6 +4,9 @@ export const GAME_MODES = ['marathon', 'sprint', 'puzzle'] as const;
 export const DIFFICULTIES = ['easy', 'normal', 'hard'] as const;
 export const RANKING_PERIODS = ['all', 'week', 'day'] as const;
 
+export const DIMENSIONS = ['3d', '2d'] as const;
+export type Dimension = (typeof DIMENSIONS)[number];
+
 export type GameMode = (typeof GAME_MODES)[number];
 export type Difficulty = (typeof DIFFICULTIES)[number];
 export type RankingPeriod = (typeof RANKING_PERIODS)[number];
@@ -22,6 +25,8 @@ export const submitRoundRequestSchema = z.object({
   playerName: playerNameSchema,
   mode: z.enum(GAME_MODES),
   difficulty: z.enum(DIFFICULTIES),
+  /** 3D well or classic 2D board; defaults to 3D for clients that predate the 2D mode. */
+  dimension: z.enum(DIMENSIONS).default('3d'),
   score: z.number().int().min(0).max(10_000_000),
   layersCleared: z.number().int().min(0).max(100_000),
   /** Rows cleared, with each full layer credited as wellWidth rows. Defaults for pre-rows clients. */
@@ -44,6 +49,7 @@ export interface RoundResponse {
   playerName: string;
   mode: GameMode;
   difficulty: Difficulty;
+  dimension: Dimension;
   score: number;
   layersCleared: number;
   linesCleared: number;
@@ -56,6 +62,7 @@ export interface RoundResponse {
 export const rankingQuerySchema = z.object({
   mode: z.enum(GAME_MODES),
   difficulty: z.enum(DIFFICULTIES),
+  dimension: z.enum(DIMENSIONS).default('3d'),
   period: z.enum(RANKING_PERIODS).default('all'),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.string().max(200).optional(),

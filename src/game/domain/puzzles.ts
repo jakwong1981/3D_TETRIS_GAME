@@ -44,4 +44,5 @@ export const PUZZLES: readonly PuzzleDefinition[] = [
   },
 ];
 
-export const PUZZLE_PREFILL_VALUE = 9;
+/** Far above any piece's cell value (index + 1), so new piece kinds never collide with it. */
+export const PUZZLE_PREFILL_VALUE = 200;

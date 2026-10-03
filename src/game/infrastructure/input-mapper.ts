@@ -1,9 +1,11 @@
 import { TUNING } from '../config/tuning';
-import type { Axis, Direction } from '../domain/rotation';
 
 export interface InputActions {
   shift(right: number, away: number): void;
-  rotate(axis: Axis, dir: Direction): void;
+  /** X key: vertical turn (tip forward, screen-relative). */
+  rotateVertical(): void;
+  /** Z key: horizontal turn (spin about the vertical axis). */
+  rotateHorizontal(): void;
   hardDrop(): void;
   hold(): void;
   setSoftDrop(active: boolean): void;
@@ -21,15 +23,14 @@ const SHIFT_KEYS: Readonly<Record<string, readonly [number, number]>> = {
   ArrowDown: [0, -1],
 };
 
-/** A / S / Z sit under the left hand while the right hand stays on the arrows. */
-const ROTATE_KEYS: Readonly<Record<string, Axis>> = { KeyA: 'x', KeyS: 'y', KeyZ: 'z' };
-
 /** Keyboard → game verbs. Arrow keys repeat with DAS/ARR, sampled in fixedUpdate. */
 export class InputMapper {
   private heldShift: string | null = null;
   private heldTime = 0;
   private repeatTimer = 0;
   enabled = true;
+  /** Classic 2D controls: ↑ rotates clockwise and ↓ soft-drops instead of moving in depth. */
+  planar = false;
 
   constructor(private readonly actions: InputActions) {
     addEventListener('keydown', this.onKeyDown);
@@ -66,9 +67,9 @@ export class InputMapper {
         this.actions.firstGesture();
         if (!this.enabled) return;
         button.setPointerCapture(e.pointerId);
-        this.beginShift(code);
+        this.press(code);
       });
-      const release = (): void => this.endShift(code);
+      const release = (): void => this.release(code);
       button.addEventListener('pointerup', release);
       button.addEventListener('pointercancel', release);
       button.addEventListener('lostpointercapture', release);
@@ -86,10 +87,12 @@ export class InputMapper {
     if (!this.enabled) return;
     if (e.code in SHIFT_KEYS || e.code === 'Space') e.preventDefault();
     if (e.repeat) return;
-    if (e.code in SHIFT_KEYS) return this.beginShift(e.code);
-    const axis = ROTATE_KEYS[e.code];
-    if (axis) return this.actions.rotate(axis, e.shiftKey ? -1 : 1);
+    if (e.code in SHIFT_KEYS) return this.press(e.code);
     switch (e.code) {
+      case 'KeyX':
+        return this.actions.rotateVertical();
+      case 'KeyZ':
+        return this.actions.rotateHorizontal();
       case 'ShiftLeft':
       case 'ShiftRight':
         return this.actions.setSoftDrop(true);
@@ -107,9 +110,21 @@ export class InputMapper {
   };
 
   private readonly onKeyUp = (e: KeyboardEvent): void => {
-    this.endShift(e.code);
+    this.release(e.code);
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.actions.setSoftDrop(false);
   };
+
+  /** Arrow (key or pad) pressed. In 2D, ↑ / ↓ are rotate / soft drop; otherwise a held move. */
+  private press(code: string): void {
+    if (this.planar && code === 'ArrowUp') return this.actions.rotateVertical();
+    if (this.planar && code === 'ArrowDown') return this.actions.setSoftDrop(true);
+    this.beginShift(code);
+  }
+
+  private release(code: string): void {
+    if (this.planar && code === 'ArrowDown') this.actions.setSoftDrop(false);
+    this.endShift(code);
+  }
 
   private beginShift(code: string): void {
     this.heldShift = code;

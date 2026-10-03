@@ -24,6 +24,7 @@ uniform vec3 uFogColor;
 uniform vec3 uLineColor;
 uniform vec3 uHighlightColor;
 uniform float uBaseAlpha;
+uniform float uLineAlpha;
 varying vec3 vGrid;
 varying vec3 vNormalW;
 varying vec3 vWorld;
@@ -43,11 +44,13 @@ void main() {
   else if (n.x > 0.5) { planeCoord = vGrid.yz; face = 1; }
   else { planeCoord = vGrid.xz; face = 2; }
 
-  vec3 base = vec3(0.018, 0.02, 0.03);
-  float line = gridLine(planeCoord, 1.2);
-  vec3 col = base + uLineColor * line * 0.55;
-  // Glass well: panels are mostly see-through so the backdrop stays visible; lines stay solid.
-  float alpha = mix(uBaseAlpha, 1.0, line);
+  // Neutral smoked-glass panel + soft white lines: no hue of its own, so it never fights the
+  // backdrop photo or the coloured cubes. The floor is a touch denser than the walls to anchor it.
+  vec3 base = vec3(0.02);
+  float line = gridLine(planeCoord, 1.0);
+  vec3 col = mix(base, uLineColor, line);
+  float panelAlpha = face == 0 ? uBaseAlpha * 1.4 : uBaseAlpha;
+  float alpha = mix(panelAlpha, uLineAlpha, line);
 
   // Orthographic projection of the falling piece onto the floor and walls: the strongest depth cue.
   if (uHasActive == 1) {
@@ -75,7 +78,8 @@ void main() {
 
   // Height fog: f = clamp(h / H)², the top of the well melts into the backdrop horizon.
   float f = clamp(vGrid.z / uWellSize.z, 0.0, 1.0);
-  col = mix(col, uFogColor, f * f * 0.85);
+  // Fades toward transparent instead of into a fog tint, so the top never shows a coloured band.
+  alpha *= 1.0 - f * f * 0.6;
   gl_FragColor = vec4(col, alpha);
 }
 `;

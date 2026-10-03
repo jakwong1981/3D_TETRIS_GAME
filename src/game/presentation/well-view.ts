@@ -61,8 +61,9 @@ function createWellUniforms(grid: Grid, activeCells: THREE.Vector3[]) {
     uClearPulse: { value: 0 },
     uTime: { value: 0 },
     uFogColor: { value: new THREE.Color() },
-    uLineColor: { value: new THREE.Color('#7fa8ff') },
-    uHighlightColor: { value: new THREE.Color('#fff2c4') },
-    uBaseAlpha: { value: 0.28 },
+    uLineColor: { value: new THREE.Color('#e6ebf2') },
+    uHighlightColor: { value: new THREE.Color('#ffffff') },
+    uBaseAlpha: { value: 0.22 },
+    uLineAlpha: { value: 0.45 },
   };
 }

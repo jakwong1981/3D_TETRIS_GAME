@@ -1,4 +1,4 @@
-import { SPRINT_TARGET_LINES, type Difficulty } from '../../shared/contracts';
+import { SPRINT_TARGET_LINES, type Difficulty, type Dimension } from '../../shared/contracts';
 
 export const CLIENT_VERSION = '1.0.0';
 
@@ -37,6 +37,12 @@ export interface DifficultyProfile {
   startLevel: number;
   specialPieceChance: number;
 }
+
+/** Board shape per view. 2D is the classic 10 wide × 20 tall board, one cell deep. */
+export const BOARD_SHAPES: Readonly<Record<Dimension, { width: number; depth: number; height: number }>> = {
+  '3d': { width: 10, depth: 10, height: TUNING.wellHeight },
+  '2d': { width: 10, depth: 1, height: 20 },
+};
 
 export const DIFFICULTY_PROFILES: Readonly<Record<Difficulty, DifficultyProfile>> = {
   easy: { wellSize: 10, startLevel: 1, specialPieceChance: 0.1 },

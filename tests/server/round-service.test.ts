@@ -28,6 +28,18 @@ describe('plausibility', () => {
     ).toContain('More lines cleared than the placed cubes could fill');
   });
 
+  it('accepts an ordinary 2D round and rejects layer clears in 2D', () => {
+    const flat = { dimension: '2d', layersCleared: 0, linesCleared: 40, piecesPlaced: 110 } as const;
+    expect(findImplausibilities(validRound(flat))).toEqual([]);
+    expect(findImplausibilities(validRound({ ...flat, layersCleared: 1 }))).toContain(
+      '2D rounds have no puzzles or layer clears',
+    );
+    // A 2D row needs all 10 cubes: 110 pieces = 440 cubes = at most 44 lines.
+    expect(findImplausibilities(validRound({ ...flat, linesCleared: 45 }))).toContain(
+      'More lines cleared than the placed cubes could fill',
+    );
+  });
+
   it('accepts a score boosted by the ×8 same-colour multiplier', () => {
     // One XYZ chain clearing 2 rows at level 15 with combo 0: (300)·15·8 = 36 000.
     expect(
@@ -77,6 +89,7 @@ describe('RoundService', () => {
     const first = await service.getRanking({
       mode: 'marathon',
       difficulty: 'normal',
+      dimension: '3d',
       period: 'all',
       limit: 2,
     });
@@ -88,12 +101,26 @@ describe('RoundService', () => {
     const second = await service.getRanking({
       mode: 'marathon',
       difficulty: 'normal',
+      dimension: '3d',
       period: 'all',
       limit: 2,
       cursor: first.nextCursor ?? undefined,
     });
     expect(second.entries.map((e) => [e.rank, e.score])).toEqual([[3, 100]]);
     expect(second.nextCursor).toBeNull();
+  });
+
+  it('keeps 2D and 3D leaderboards apart', async () => {
+    const service = new RoundService(new InMemoryRoundRepository(), () => NOW);
+    await service.submitRound(
+      validRound({ playerName: 'Flat', dimension: '2d', layersCleared: 0, score: 900 }),
+    );
+    await service.submitRound(validRound({ playerName: 'Cube', dimension: '3d', score: 500 }));
+    const query = { mode: 'marathon', difficulty: 'normal', period: 'all', limit: 10 } as const;
+    const flat = await service.getRanking({ ...query, dimension: '2d' });
+    const cube = await service.getRanking({ ...query, dimension: '3d' });
+    expect(flat.entries.map((e) => e.playerName)).toEqual(['Flat']);
+    expect(cube.entries.map((e) => e.playerName)).toEqual(['Cube']);
   });
 
   it('ranks sprint by fastest completed time only', async () => {
@@ -119,7 +146,13 @@ describe('RoundService', () => {
     await service.submitRound(
       validRound({ mode: 'sprint', layersCleared: 0, linesCleared: 0, completed: false, durationMs: 10_000 }),
     );
-    const page = await service.getRanking({ mode: 'sprint', difficulty: 'normal', period: 'all', limit: 10 });
+    const page = await service.getRanking({
+      mode: 'sprint',
+      difficulty: 'normal',
+      dimension: '3d',
+      period: 'all',
+      limit: 10,
+    });
     expect(page.entries.map((e) => e.durationMs)).toEqual([200_000, 300_000]);
   });
 
@@ -132,6 +165,7 @@ describe('RoundService', () => {
     const page = await service.getRanking({
       mode: 'marathon',
       difficulty: 'normal',
+      dimension: '3d',
       period: 'day',
       limit: 10,
     });

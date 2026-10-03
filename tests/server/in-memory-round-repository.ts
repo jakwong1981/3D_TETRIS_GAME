@@ -22,6 +22,7 @@ export class InMemoryRoundRepository implements RoundRepository {
     const key = (r: RoundRecord): number => (asc ? r.durationMs : r.score);
     const sorted = this.rows
       .filter((r) => r.mode === filter.mode && r.difficulty === filter.difficulty && !r.flagged)
+      .filter((r) => r.dimension === filter.dimension)
       .filter((r) => !asc || r.completed)
       .filter((r) => !filter.since || r.playedAt >= filter.since)
       .sort((a, b) =>

@@ -8,7 +8,7 @@ import { cellToWorld } from './coordinates';
 import { CubeInstances, createCubeSharedUniforms, type CubeInstance } from './cube-instances';
 import { GhostView, ParticleBursts } from './effects-views';
 import { FeedbackMotion } from './feedback-motion';
-import type { BackdropChoice } from './background-images';
+import { RANDOM_BACKDROP, type BackdropChoice } from './background-images';
 import { HongKongBackdrop } from './hong-kong-backdrop';
 import { PiecePreview } from './piece-preview';
 import { PostPipeline } from './post-pipeline';
@@ -35,6 +35,7 @@ export class GameRenderer {
   private readonly post: PostPipeline;
   private readonly preview: PiecePreview;
   private well: WellView | null = null;
+  private backdropChoice: BackdropChoice | null = null;
   private session: GameSession | null = null;
   private recentCells = new Set<string>();
   private stackDirty = true;
@@ -77,16 +78,25 @@ export class GameRenderer {
     addEventListener('resize', this.resize);
   }
 
-  attach(session: GameSession, backdrop: BackdropChoice): void {
+  /**
+   * Shows a backdrop right away (menu preview). Re-applies only on a real change, or when
+   * `reroll` asks a 'random' choice to draw a new picture (a new round).
+   */
+  setBackdrop(choice: BackdropChoice, reroll = false): void {
+    if (choice === this.backdropChoice && !(reroll && choice === RANDOM_BACKDROP)) return;
+    this.backdropChoice = choice;
+    this.backdrop.apply(choice, this.random);
+  }
+
+  attach(session: GameSession, backdrop: BackdropChoice, reroll: boolean): void {
     this.session = session;
     this.well?.dispose();
     this.well = new WellView(session.grid);
     this.scene.add(this.well.mesh);
-    this.rig.frameWell(session.grid.width, session.grid.height);
+    this.rig.frameWell(session.grid.width, session.grid.height, session.grid.depth === 1);
     // Fog distance scales with the well so a large floor isn't washed out at its far corner.
     this.shared.uFogFar.value = Math.max(60, session.grid.width * 6);
-    this.backdrop.apply(backdrop, this.random);
-    this.shared.uFogColor.value.copy(this.backdrop.fogColor);
+    this.setBackdrop(backdrop, reroll);
     this.recentCells.clear();
     this.feedback.reset();
     this.stackDirty = true;
@@ -108,6 +118,8 @@ export class GameRenderer {
     const flash = this.backdrop.update(time, dt, this.random);
     this.backdrop.updateEnvironment(this.renderer);
     this.shared.uTime.value = time;
+    // Photos load asynchronously and set their fog colour on arrival, so sync it every frame.
+    this.shared.uFogColor.value.copy(this.backdrop.fogColor);
     this.shared.uSquash.value = this.feedback.squash;
     this.shared.uLightColor.value.setRGB(1.0, 0.92, 0.82).multiplyScalar(2.6 + flash * 4);
     const clearProgress = session.phase === 'clearing' ? session.clearTimer / TUNING.clearAnimSeconds : 0;

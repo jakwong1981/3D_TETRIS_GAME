@@ -1,6 +1,7 @@
 import type {
   ApiErrorResponse,
   Difficulty,
+  Dimension,
   GameMode,
   PlayerRoundsPage,
   RankingPage,
@@ -37,12 +38,14 @@ export class ScoreApi {
   async fetchRanking(params: {
     mode: GameMode;
     difficulty: Difficulty;
+    dimension: Dimension;
     period: RankingPeriod;
     limit?: number;
   }): Promise<RankingPage> {
     const query = new URLSearchParams({
       mode: params.mode,
       difficulty: params.difficulty,
+      dimension: params.dimension,
       period: params.period,
       limit: String(params.limit ?? 20),
     });

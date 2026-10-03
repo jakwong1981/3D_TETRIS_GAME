@@ -12,6 +12,8 @@ export class PieceRandomizer {
     private readonly random: RandomSource,
     private readonly specialChance: number,
     private readonly fixedSequence: readonly PieceKind[] | null = null,
+    /** Shapes that appear once in every bag (3D: five classics, 2D: seven tetrominoes). */
+    private readonly baseKinds: readonly PieceKind[] = CLASSIC_KINDS,
   ) {
     if (fixedSequence) this.queue = [...fixedSequence];
   }
@@ -33,6 +35,6 @@ export class PieceRandomizer {
 
   private createBag(): PieceKind[] {
     const specials = SPECIAL_KINDS.filter(() => this.random() < this.specialChance);
-    return shuffle([...CLASSIC_KINDS, ...specials], this.random);
+    return shuffle([...this.baseKinds, ...specials], this.random);
   }
 }
