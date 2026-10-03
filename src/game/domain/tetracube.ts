@@ -1,10 +1,14 @@
 import { vec3, type Vec3 } from './vec3';
 
-export const PIECE_KINDS = ['I', 'O', 'L', 'T', 'S', 'Branch', 'RightScrew', 'LeftScrew'] as const;
+// Order matters: cell value = index + 1, so new kinds are only ever appended.
+export const PIECE_KINDS = ['I', 'O', 'L', 'T', 'S', 'Branch', 'RightScrew', 'LeftScrew', 'J', 'Z'] as const;
 export type PieceKind = (typeof PIECE_KINDS)[number];
 
+/** 3D bag: J and Z are rotations of L and S in 3D, so only five classic shapes. */
 export const CLASSIC_KINDS: readonly PieceKind[] = ['I', 'O', 'L', 'T', 'S'];
 export const SPECIAL_KINDS: readonly PieceKind[] = ['Branch', 'RightScrew', 'LeftScrew'];
+/** 2D bag: the seven classic tetrominoes; in a flat board mirror images are different pieces. */
+export const TETROMINO_KINDS: readonly PieceKind[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
 
 export type MaterialKind = 'glass' | 'metal' | 'jelly';
 
@@ -16,7 +20,7 @@ export interface PieceDefinition {
   material: MaterialKind;
 }
 
-/** J and Z are omitted on purpose: in 3D they are rotations of L and S. */
+/** Shapes are drawn in the x-y plane; spawn turns them upright when the board is 2D. */
 export const PIECE_DEFINITIONS: Readonly<Record<PieceKind, PieceDefinition>> = {
   I: {
     kind: 'I',
@@ -73,6 +77,20 @@ export const PIECE_DEFINITIONS: Readonly<Record<PieceKind, PieceDefinition>> = {
     pivotIndex: 1,
     color: '#ff4fd8',
     material: 'jelly',
+  },
+  J: {
+    kind: 'J',
+    cells: [vec3(0, 0, 0), vec3(1, 0, 0), vec3(2, 0, 0), vec3(0, 1, 0)],
+    pivotIndex: 1,
+    color: '#3d7bff',
+    material: 'metal',
+  },
+  Z: {
+    kind: 'Z',
+    cells: [vec3(0, 1, 0), vec3(1, 1, 0), vec3(1, 0, 0), vec3(2, 0, 0)],
+    pivotIndex: 2,
+    color: '#ff3b3b',
+    material: 'glass',
   },
 };
 

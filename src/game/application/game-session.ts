@@ -1,5 +1,5 @@
-import type { Difficulty, GameMode } from '../../shared/contracts';
-import { DIFFICULTY_PROFILES, TUNING } from '../config/tuning';
+import type { Difficulty, Dimension, GameMode } from '../../shared/contracts';
+import { BOARD_SHAPES, DIFFICULTY_PROFILES, TUNING } from '../config/tuning';
 import { ActivePiece } from '../domain/active-piece';
 import { colourBonus, NO_COLOUR_BONUS, type ColourBonus } from '../domain/colour-bonus';
 import { Grid, type ClearPlan } from '../domain/grid';
@@ -15,7 +15,7 @@ import {
   levelFor,
   secondsPerCell,
 } from '../domain/scoring';
-import type { PieceKind } from '../domain/tetracube';
+import { CLASSIC_KINDS, TETROMINO_KINDS, type PieceKind } from '../domain/tetracube';
 import { vec3, type Vec3 } from '../domain/vec3';
 
 export type SessionPhase = 'falling' | 'clearing' | 'paused' | 'over';
@@ -32,6 +32,7 @@ export type SessionEvent =
 export interface SessionConfig {
   mode: GameMode;
   difficulty: Difficulty;
+  dimension: Dimension;
   seed: number;
   puzzleIndex: number;
 }
@@ -39,6 +40,7 @@ export interface SessionConfig {
 export interface RoundResult {
   mode: GameMode;
   difficulty: Difficulty;
+  dimension: Dimension;
   score: number;
   layersCleared: number;
   linesCleared: number;
@@ -90,14 +92,22 @@ export class GameSession implements SessionCommands {
 
   constructor(readonly config: SessionConfig) {
     const profile = DIFFICULTY_PROFILES[config.difficulty];
-    this.puzzle = config.mode === 'puzzle' ? (PUZZLES[config.puzzleIndex] ?? PUZZLES[0] ?? null) : null;
-    const size = this.puzzle?.size ?? profile.wellSize;
-    this.grid = new Grid(size, size, TUNING.wellHeight);
+    const planar = config.dimension === '2d';
+    // Puzzles are 3D wells by design; a 2D round never loads one.
+    this.puzzle =
+      config.mode === 'puzzle' && !planar ? (PUZZLES[config.puzzleIndex] ?? PUZZLES[0] ?? null) : null;
+    if (this.puzzle) {
+      this.grid = new Grid(this.puzzle.size, this.puzzle.size, TUNING.wellHeight);
+    } else {
+      const board = BOARD_SHAPES[config.dimension];
+      this.grid = new Grid(board.width, board.depth, board.height);
+    }
     this.startLevel = profile.startLevel;
     this.randomizer = new PieceRandomizer(
       createSeededRandom(config.seed),
-      profile.specialPieceChance,
+      planar ? 0 : profile.specialPieceChance, // 3D-only shapes cannot lie in a flat board
       this.puzzle?.pieces ?? null,
+      planar ? TETROMINO_KINDS : CLASSIC_KINDS,
     );
     if (this.puzzle) fillPuzzle(this.grid, this.puzzle);
     this.spawnNext();
@@ -304,6 +314,7 @@ export class GameSession implements SessionCommands {
     return {
       mode: this.config.mode,
       difficulty: this.config.difficulty,
+      dimension: this.config.dimension,
       score: this.score,
       layersCleared: this.layersCleared,
       linesCleared: this.linesCleared,

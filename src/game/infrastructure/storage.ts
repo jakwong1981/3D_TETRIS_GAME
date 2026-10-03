@@ -1,4 +1,4 @@
-import type { SubmitRoundRequest } from '../../shared/contracts';
+import type { Dimension, SubmitRoundRequest } from '../../shared/contracts';
 
 const NAME_KEY = 'tetracube.playerName';
 const QUEUE_KEY = 'tetracube.pendingRounds';
@@ -51,5 +51,17 @@ export const backdropStorage = {
   },
   write(choice: string): void {
     localStorage.setItem(BACKDROP_KEY, choice);
+  },
+};
+
+const DIMENSION_KEY = 'tetracube.dimension';
+
+/** Last 2D / 3D view picked in the menu; 3D until the player chooses. */
+export const dimensionStorage = {
+  read(): Dimension {
+    return localStorage.getItem(DIMENSION_KEY) === '2d' ? '2d' : '3d';
+  },
+  write(dimension: Dimension): void {
+    localStorage.setItem(DIMENSION_KEY, dimension);
   },
 };

@@ -3,9 +3,10 @@
 A 3D Tetris (tetracube) browser game built with Three.js and TypeScript, with a Fastify + MongoDB ranking API and a Docker / HTTPS deployment.
 
 - 10×10×10 see-through well, 8 tetracubes (I, O, L, T, S, Branch, Right Screw, Left Screw)
+- Classic 2D mode: a 10×20 board with the seven tetrominoes, same scoring rules, separate leaderboard
 - Full X/Y rows and full layers clear; same-colour rows multiply the score ×2 / ×4 / ×8
 - Physically based cube materials (glass, jelly, brushed metal, iridescent), bloom, particles
-- Selectable backdrops: your own photos or a procedural Hong Kong skyline shader
+- Selectable backdrops with live preview in the menu: your own photos or a procedural Hong Kong skyline shader
 - Classic Korobeiniki music synthesised live with WebAudio
 - Online ranking (marathon by score, sprint by time) with offline queueing
 
@@ -60,24 +61,33 @@ Any `.jpg/.jpeg/.png/.webp` in `src/game/assets/backgrounds/` appears in the men
 
 ## 2. How to play
 
-| Input                    | Action                                             |
-| ------------------------ | -------------------------------------------------- |
-| ← → ↑ ↓ or on-screen pad | Move (relative to the camera view; hold to repeat) |
-| A / S / Z                | Rotate about the X / Y / Z axis                    |
-| Shift + A / S / Z        | Rotate the other way                               |
-| Shift (hold)             | Soft drop                                          |
-| Space                    | Hard drop                                          |
-| C                        | Hold piece (once per piece, not in puzzles)        |
-| Q / E or mouse drag      | Orbit the camera                                   |
-| R                        | Restart round                                      |
-| Esc                      | Pause                                              |
-| M or HUD button          | Music on / off                                     |
+| Input                    | Action                                                                  |
+| ------------------------ | ----------------------------------------------------------------------- |
+| ← → ↑ ↓ or on-screen pad | Move along the grid axis closest to screen right / up (hold to repeat)  |
+| X                        | Rotate vertically (tip the piece away from you, relative to the camera) |
+| Z                        | Rotate horizontally (spin about the vertical axis)                      |
+| Shift (hold)             | Soft drop                                                               |
+| Space                    | Hard drop                                                               |
+| C                        | Hold piece (once per piece, not in puzzles)                             |
+| Q / E or mouse drag      | Orbit the camera (3D only; snap views sit ≈20° off a wall)              |
+| R                        | Restart round                                                           |
+| Esc                      | Pause                                                                   |
+| M or HUD button          | Music on / off                                                          |
 
 The HUD shows score, level, lines, layers, time, a 3D **Falling** preview that turns with the piece and camera, the next three pieces and the held piece. Add `?lowfx` to the URL for a lighter render path.
 
-Known overlap: Shift is both reverse-rotate and soft drop.
+These two turns reach every orientation of every piece.
 
 ## 3. Game rules
+
+### 2D / 3D view
+
+The menu's **View** option switches between the 3D well and a classic 2D board. 2D uses the same engine with a 10 wide × 20 tall board one cell deep:
+
+- Pieces: the seven tetrominoes I, O, T, S, Z, J, L, one of each per bag (no 3D-only shapes).
+- Controls: ← → move, ↑ or X rotate clockwise, Z rotate counter-clockwise, ↓ or Shift soft drop, Space hard drop, C hold. The camera is locked to a front view.
+- Rules: identical scoring, levels, sprint target and same-colour bonus. A full row is one line (there is no 3D layer bonus), and stacked same-colour rows sharing columns chain for ×4.
+- Puzzles are 3D only. 2D rounds are stored with `dimension: "2d"` and ranked on their own board.
 
 ### Modes and difficulty
 
@@ -128,7 +138,7 @@ stateDiagram-v2
   Over --> [*]
 ```
 
-1. Menu: player name (2–16 letters, digits, space, `_` or `-`), mode, difficulty or puzzle, backdrop.
+1. Menu: player name (2–16 letters, digits, space, `_` or `-`), view (2D / 3D), mode, difficulty or puzzle, backdrop. Changing the view or backdrop previews it behind the menu immediately.
 2. Start creates a `GameSession` with a random 32-bit seed.
 3. Fixed 60 Hz steps: input repeat (DAS 0.17 s / ARR 0.05 s), then the session, then cosmetic motion. Rendering only reads state.
 4. Round end shows the result and posts it to `/api/v1/rounds`. Network or 5xx failures queue the round in `localStorage` (max 50) and retry on the next submit or page load; 4xx responses are shown and dropped.
@@ -205,18 +215,18 @@ Stack (pinned): three 0.170.0, vite 6.0.7, typescript 5.7.2 (strict), vitest 2.1
 
 Base path `/api/v1`.
 
-| Method | Path                                                               | Request                                                                                                                        | 2xx                                                                                                       | Errors                                                        |
-| ------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| POST   | `/rounds`                                                          | `{playerName, mode, difficulty, score, layersCleared, linesCleared, piecesPlaced, durationMs, completed, seed, clientVersion}` | 201 `RoundResponse`                                                                                       | 400 VALIDATION_ERROR, 422 IMPLAUSIBLE_ROUND, 429 RATE_LIMITED |
-| GET    | `/rankings?mode&difficulty&period=all\|week\|day&limit≤100&cursor` | —                                                                                                                              | 200 `{entries[{rank, playerName, score, layersCleared, linesCleared, durationMs, playedAt}], nextCursor}` | 400                                                           |
-| GET    | `/players/:playerName/rounds?limit&cursor`                         | —                                                                                                                              | 200 `{rounds, personalBest, nextCursor}`                                                                  | 400                                                           |
-| GET    | `/health`                                                          | —                                                                                                                              | 200 `{status:"ok"}`                                                                                       | —                                                             |
+| Method | Path                                                                                | Request                                                                                                                                   | 2xx                                                                                                       | Errors                                                        |
+| ------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| POST   | `/rounds`                                                                           | `{playerName, mode, difficulty, dimension, score, layersCleared, linesCleared, piecesPlaced, durationMs, completed, seed, clientVersion}` | 201 `RoundResponse`                                                                                       | 400 VALIDATION_ERROR, 422 IMPLAUSIBLE_ROUND, 429 RATE_LIMITED |
+| GET    | `/rankings?mode&difficulty&dimension=3d\|2d&period=all\|week\|day&limit≤100&cursor` | —                                                                                                                                         | 200 `{entries[{rank, playerName, score, layersCleared, linesCleared, durationMs, playedAt}], nextCursor}` | 400                                                           |
+| GET    | `/players/:playerName/rounds?limit&cursor`                                          | —                                                                                                                                         | 200 `{rounds, personalBest, nextCursor}`                                                                  | 400                                                           |
+| GET    | `/health`                                                                           | —                                                                                                                                         | 200 `{status:"ok"}`                                                                                       | —                                                             |
 
 All errors use `ApiErrorResponse {code, message, data, timestamp}`, and every response carries an `x-trace-id` header (echoed from the request or generated). Bodies over 4 KB, more than `RATE_LIMIT_PER_MINUTE` submits per IP, or more than 120 requests per minute overall are rejected.
 
-**Collection `rounds`:** `{_id, playerName, playerNameLower, mode, difficulty, score, layersCleared, linesCleared, piecesPlaced, durationMs, completed, seed, clientVersion, playedAt, flagged}`. Older documents without `linesCleared` read as 0.
+**Collection `rounds`:** `{_id, playerName, playerNameLower, mode, difficulty, dimension, score, layersCleared, linesCleared, piecesPlaced, durationMs, completed, seed, clientVersion, playedAt, flagged}`. Older documents without `linesCleared` read as 0, and without `dimension` as `"3d"`.
 
-**Indexes:** `ranking_score {mode, difficulty, flagged, score:-1, _id:-1}`, `ranking_time {mode, difficulty, flagged, completed, durationMs, _id}`, `player_history {playerNameLower, _id:-1}`. Pagination is keyset (base64url `{value, id, rank}`), never `skip`.
+**Indexes:** `ranking_score_v2 {mode, difficulty, dimension, flagged, score:-1, _id:-1}`, `ranking_time_v2 {mode, difficulty, dimension, flagged, completed, durationMs, _id}` (the old `ranking_score` / `ranking_time` indexes are no longer used and can be dropped), `player_history {playerNameLower, _id:-1}`. Pagination is keyset (base64url `{value, id, rank}`), never `skip`.
 
 **Plausibility checks** (`server/services/plausibility.ts`): cleared layers and lines must fit the cubes placed, the score must not exceed the scoring maximum (including the ×8 colour multiplier at level 15), at least 60 ms per piece, and sprints marked complete need 20 lines.
 
@@ -289,7 +299,7 @@ flowchart LR
 ## 7. Testing
 
 ```bash
-npm test        # Vitest, 56 tests
+npm test        # Vitest, 71 tests
 npm run lint
 npm run build   # includes tsc --noEmit
 ```
@@ -300,28 +310,31 @@ npm run build   # includes tsc --noEmit
 | `tests/domain/colour-bonus.test.ts`           | Mono rows ×2, crossing XY ×4, XYZ chain ×8, mixed colours, non-touching rows, excluded prefill                               |
 | `tests/domain/scoring-and-randomizer.test.ts` | Row table, layer bonus, combo, colour multiplier, line credit, fall-speed curve, level cap, seeded bag                       |
 | `tests/application/game-session.test.ts`      | Puzzle solves, every preset solvable, same-colour row clear in marathon, top-out, pause, hold                                |
+| `tests/application/planar-session.test.ts`    | 2D board shape, seven-piece bag, upright spawn, clockwise turn, row clear as a line, dimension in the result                 |
+| `tests/presentation/controls.test.ts`         | → / ↑ move right / up on screen from all four camera snaps; X tips the piece away from the viewer                            |
 | `tests/infrastructure/music-player.test.ts`   | Equal-temperament note frequencies                                                                                           |
 | `tests/server/round-service.test.ts`          | Plausibility rules, storage, ranking and keyset paging, sprint by time, period filter, history                               |
 | `tests/server/routes.test.ts`                 | Fastify `inject`: 201, 400, 422, 429, query validation, history                                                              |
 
 Server tests use `InMemoryRoundRepository` with the same ordering as Mongo; the Mongo adapter itself is checked manually.
 
-| ID   | Scenario                                          | Expected                                                  |
-| ---- | ------------------------------------------------- | --------------------------------------------------------- |
-| F-01 | `POST /rounds` with a valid body (API + Mongo up) | 201, row stored with `flagged=false`                      |
-| F-02 | Invalid name `"<x>"`                              | 400 `VALIDATION_ERROR`, `data[].path = playerName`        |
-| F-03 | `score: 9999999, piecesPlaced: 30`                | 422 `IMPLAUSIBLE_ROUND`, nothing stored                   |
-| F-04 | 31st submit within a minute                       | 429 with `retry-after`                                    |
-| F-05 | 25 rounds, `limit=20` then cursor                 | 20 + 5 entries, ranks 1–25 without gaps                   |
-| F-06 | Sprint ranking with incomplete runs               | Fastest first, incomplete runs absent                     |
-| F-07 | API stopped, finish a round                       | "queued" message, uploaded later                          |
-| G-01 | Open the page (Chrome, WebGL2)                    | Menu, no console errors, 60 fps                           |
-| G-02 | Move, rotate, drop                                | Piece, ghost and wall projections update; preview follows |
-| G-03 | Press R                                           | New round in under 1 s                                    |
-| G-04 | `?lowfx`                                          | No bloom / FXAA / grain                                   |
-| G-05 | Drag, Q / E                                       | Pitch stays 15–75°, arrows remap per camera quadrant      |
-| G-06 | Pick each backdrop                                | Chosen image or shader shows; HUD shows its name          |
-| G-07 | Press M                                           | Music stops and resumes                                   |
+| ID   | Scenario                                          | Expected                                                                   |
+| ---- | ------------------------------------------------- | -------------------------------------------------------------------------- |
+| F-01 | `POST /rounds` with a valid body (API + Mongo up) | 201, row stored with `flagged=false`                                       |
+| F-02 | Invalid name `"<x>"`                              | 400 `VALIDATION_ERROR`, `data[].path = playerName`                         |
+| F-03 | `score: 9999999, piecesPlaced: 30`                | 422 `IMPLAUSIBLE_ROUND`, nothing stored                                    |
+| F-04 | 31st submit within a minute                       | 429 with `retry-after`                                                     |
+| F-05 | 25 rounds, `limit=20` then cursor                 | 20 + 5 entries, ranks 1–25 without gaps                                    |
+| F-06 | Sprint ranking with incomplete runs               | Fastest first, incomplete runs absent                                      |
+| F-07 | API stopped, finish a round                       | "queued" message, uploaded later                                           |
+| G-01 | Open the page (Chrome, WebGL2)                    | Menu, no console errors, 60 fps                                            |
+| G-02 | Move, rotate, drop                                | Piece, ghost and wall projections update; preview follows                  |
+| G-03 | Press R                                           | New round in under 1 s                                                     |
+| G-04 | `?lowfx`                                          | No bloom / FXAA / grain                                                    |
+| G-05 | Drag, Q / E, then arrows                          | Pitch stays 15–75°; → moves right and ↑ moves up on screen from every view |
+| G-08 | Switch View to 2D in the menu, then play          | 10×20 board previews at once; ↑ rotates, ↓ soft-drops, Puzzle is disabled  |
+| G-06 | Pick each backdrop in the menu                    | Background changes immediately; the round keeps it; HUD shows its name     |
+| G-07 | Press M                                           | Music stops and resumes                                                    |
 
 ## 8. Physics and shader formulas
 
@@ -329,24 +342,27 @@ Units: 1 cell = 1 world unit, time in seconds. Grid z (height) maps to world Y: 
 
 ### 8.1 Game logic (discrete, `src/game/domain`)
 
-| Topic             | Formula                                                                                                       | Code                             | Tuning                           |
-| ----------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------- | -------------------------------- |
-| Grid index        | `i = x + W·(y + D·z)`                                                                                         | `grid.ts › index`                | —                                |
-| 90° rotation      | Rx `(x, −s·z, s·y)`, Ry `(s·z, y, −s·x)`, Rz `(−s·y, s·x, z)`, s = ±1; exact integers, no drift               | `rotation.ts › rotateOffset`     | —                                |
-| Pivot rotation    | `p' = R(p − c) + c`, c = pivot cell                                                                           | `rotation.ts › rotateCells`      | `pivotIndex` per piece           |
-| Wall kicks        | First fitting offset from `KICK_OFFSETS` (±1, ±2 on x/y, then +1 up)                                          | `active-piece.ts › tryRotate`    | Offset order                     |
-| Ghost / hard drop | `d = max{k : piece fits at z − k}`                                                                            | `dropDistance`                   | —                                |
-| Full row          | every cell of `{(t, y, z)}` or `{(x, t, z)}` occupied                                                         | `grid.ts › findClears`           | —                                |
-| Full layer        | `Σ occupied(z) = W·D`                                                                                         | `isLayerFull`                    | —                                |
-| Settling          | each cube drops by the removed cells beneath it in its (x, y) column                                          | `removeCells`                    | —                                |
-| Fall speed        | `t(n) = k·(0.8 − 0.007·(n−1))^(n−1)` s per cell, k = 2; soft drop ÷ 20                                        | `scoring.ts › secondsPerCell`    | `fallSlowdown`, `softDropFactor` |
-| Level             | `n = min(start + ⌊lines/10⌋, 15)`                                                                             | `levelFor`                       | `linesPerLevel`                  |
-| Line credit       | `lines + layers·W`                                                                                            | `lineCredit`                     | —                                |
-| Clear score       | `(rowTable(r) + 2000·L + 50·combo)·n·2^k`                                                                     | `clearPoints`, `colour-bonus.ts` | `LAYER_CLEAR_BONUS`              |
-| Same-colour chain | union-find over mono rows; edge if same colour and (cross on one layer, or share a column on adjacent layers) | `colourBonus`                    | —                                |
-| Randomizer        | bag = 5 classic + each 3D piece with probability p; Fisher–Yates with mulberry32                              | `randomizer.ts`, `random.ts`     | `specialPieceChance`             |
-| Lock delay        | lock after ≥ 0.5 s grounded; ≤ 15 resets                                                                      | `updateFalling`                  | `lockDelay`, `maxLockResets`     |
-| Music pitch       | `f = 440·2^((midi − 69)/12)`; look-ahead scheduling 120 ms on the audio clock                                 | `music-player.ts`                | `BASE_BPM` 132, +5 per level     |
+| Topic                  | Formula                                                                                                       | Code                             | Tuning                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------- | -------------------------------- |
+| Grid index             | `i = x + W·(y + D·z)`                                                                                         | `grid.ts › index`                | —                                |
+| 90° rotation           | Rx `(x, −s·z, s·y)`, Ry `(s·z, y, −s·x)`, Rz `(−s·y, s·x, z)`, s = ±1; exact integers, no drift               | `rotation.ts › rotateOffset`     | —                                |
+| Pivot rotation         | `p' = R(p − c) + c`, c = pivot cell                                                                           | `rotation.ts › rotateCells`      | `pivotIndex` per piece           |
+| Wall kicks             | First fitting offset from `KICK_OFFSETS` (±1, ±2 on x/y, then +1 up)                                          | `active-piece.ts › tryRotate`    | Offset order                     |
+| Ghost / hard drop      | `d = max{k : piece fits at z − k}`                                                                            | `dropDistance`                   | —                                |
+| Full row               | every cell of `{(t, y, z)}` or `{(x, t, z)}` occupied                                                         | `grid.ts › findClears`           | —                                |
+| Full layer             | `Σ occupied(z) = W·D`                                                                                         | `isLayerFull`                    | —                                |
+| Settling               | each cube drops by the removed cells beneath it in its (x, y) column                                          | `removeCells`                    | —                                |
+| Fall speed             | `t(n) = k·(0.8 − 0.007·(n−1))^(n−1)` s per cell, k = 2; soft drop ÷ 20                                        | `scoring.ts › secondsPerCell`    | `fallSlowdown`, `softDropFactor` |
+| Level                  | `n = min(start + ⌊lines/10⌋, 15)`                                                                             | `levelFor`                       | `linesPerLevel`                  |
+| Line credit            | `lines + layers·W`                                                                                            | `lineCredit`                     | —                                |
+| Clear score            | `(rowTable(r) + 2000·L + 50·combo)·n·2^k`                                                                     | `clearPoints`, `colour-bonus.ts` | `LAYER_CLEAR_BONUS`              |
+| Same-colour chain      | union-find over mono rows; edge if same colour and (cross on one layer, or share a column on adjacent layers) | `colourBonus`                    | —                                |
+| Randomizer             | bag = 5 classic + each 3D piece with probability p; Fisher–Yates with mulberry32                              | `randomizer.ts`, `random.ts`     | `specialPieceChance`             |
+| Lock delay             | lock after ≥ 0.5 s grounded; ≤ 15 resets                                                                      | `updateFalling`                  | `lockDelay`, `maxLockResets`     |
+| 2D turns               | about grid y: s = +1 sends the top cell (0,0,1) to (1,0,0), clockwise from the front                          | `PLANAR_CLOCKWISE`               | —                                |
+| Screen-relative arrows | right = closest grid axis to `(cos θ, −sin θ)`, away = closest perpendicular axis to `(−sin θ, −cos θ)`       | `camera-rig.ts › controlFrame`   | `VIEW_OFFSET` 0.22               |
+| X tip turn             | axis = the grid axis along screen right; sign chosen so the top cell lands on `away`                          | `tipAwayTurn`                    | —                                |
+| Music pitch            | `f = 440·2^((midi − 69)/12)`; look-ahead scheduling 120 ms on the audio clock                                 | `music-player.ts`                | `BASE_BPM` 132, +5 per level     |
 
 ### 8.2 Cosmetic physics (fixed 60 Hz step, `presentation/feedback-motion.ts`, `camera-rig.ts`)
 
@@ -382,8 +398,8 @@ Units: 1 cell = 1 world unit, time in seconds. Grid z (height) maps to world Y: 
 ### 8.4 Cube shader (`shaders/cube.glsl.ts`)
 
 | Technique                     | Formula                                                                                                                                                                         | Uniform / tuning                     |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ------------------------------------ | --------------------------- |
-| Rounded-box SDF normal        | `q = max(                                                                                                                                                                       | p                                    | − (½ − r), 0)`, `n = normalize(sign(p)·q)`. On flat faces only one component of q is non-zero, so n equals the face normal; near edges the normal bends | `BEVEL` 0.08           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | --- | ---------------------- |
+| Rounded-box SDF normal        | `q = max(abs(p) − (½ − r), 0)`, `n = normalize(sign(p)·q)`. On flat faces only one component of q is non-zero, so n equals the face normal; near edges the normal bends         | `BEVEL` 0.08                         |
 | Schlick Fresnel               | `F = F₀ + (1 − F₀)(1 − cosθ)⁵`                                                                                                                                                  | —                                    |
 | GGX distribution              | `D = α²/(π((n·h)²(α² − 1) + 1)²)`, α = roughness²                                                                                                                               | —                                    |
 | Smith–Schlick G               | `G = G₁(v)·G₁(l)`, `G₁ = n·x/((n·x)(1 − k) + k)`, k = (r + 1)²/8                                                                                                                | —                                    |
@@ -393,23 +409,24 @@ Units: 1 cell = 1 world unit, time in seconds. Grid z (height) maps to world Y: 
 | Beer–Lambert tint             | `T = e^(−σd)`, σ = (1 − albedo)·2.2 + 0.05, d ≈ 0.6/max(n·v, 0.25)                                                                                                              | —                                    |
 | Thin-film iridescence         | Snell inside the film (n_f = 1.33); path difference `Δ = 2·n_f·d·cosθ_t`; intensity per wavelength ∝ `cos²(πΔ/λ)` with λ = 650/532/450 nm; thickness d = 380 ± 120 nm over time | —                                    |
 | Anisotropic GGX (metal)       | `D = 1/(π·αx·αy·((t·h/αx)² + (b·h/αy)² + (n·h)²)²)`, with αx = 1.8α and αy = 0.45α for brushed metal                                                                            | —                                    |
-| Triplanar noise roughness     | `w =                                                                                                                                                                            | n                                    | ⁴/Σ                                                                                                                                                     | n                      | ⁴`, noise = Σ wᵢ·noise(projection i) | Roughness 0.22 + 0.18·noise |
+| Triplanar noise roughness     | `w = abs(n)⁴ / Σ abs(n)⁴`, noise = Σ wᵢ·noise(projection i)                                                                                                                     | Roughness 0.22 + 0.18·noise          |
 | IBL                           | `textureLod(env, reflect(−v, n), roughness·log₂(256))`                                                                                                                          | `ENV_SIZE` 256                       |
 | Wrap lighting (jelly)         | `(n·l + w)/(1 + w)`, w = 0.5                                                                                                                                                    | —                                    |
 | Subsurface back-light         | `(v · −(l + 0.3n))³ · e^(−d/ℓ)`                                                                                                                                                 | d = 0.6, ℓ = 0.45                    |
-| Fresnel rim (active piece)    | `(1 −                                                                                                                                                                           | n·v                                  | )³ · 1.8`                                                                                                                                               | `uRim`                 |
+| Fresnel rim (active piece)    | `(1 − abs(n·v))³ · 1.8`                                                                                                                                                         | `uRim`                               |
 | Noise dissolve (layer clear)  | `discard` if `noise(p·4) < t`; glowing band where `smoothstep(t, t + 0.08, n) − smoothstep(t + 0.08, t + 0.16, n)`                                                              | `clearAnimSeconds` 0.45              |
 | Distance fog                  | `mix(col, fog, clamp(d/60)²·0.6)`                                                                                                                                               | `uFogFar`                            |
-| Vertex jelly wobble           | `xz += sin(6y + 18t)·0.06·                                                                                                                                                      | s                                    | `                                                                                                                                                       | Spring state `uSquash` |
+| Vertex jelly wobble           | `xz += sin(6y + 18t)·0.06·                                                                                                                                                      | s                                    | `   | Spring state `uSquash` |
 
 ### 8.5 Well shader (`shaders/well.glsl.ts`)
 
 - **Back-face-only walls:** the near walls are culled, so they never cover the stack.
+- **Neutral glass:** panels are near-black at alpha 0.22 (floor ×1.4), lines soft white `#e6ebf2` at alpha 0.45, so the well has no hue of its own and never clashes with the photo or the cubes.
 - **Anti-aliased grid:** `line = 1 − clamp(min(|fract(c − ½) − ½| / fwidth(c)) / w)`. Dividing by the screen-space derivative keeps lines about 1 px wide at any distance, with no shimmer.
 - **Active-piece projection:** each floor or wall texel lights up if its cell matches the piece cell projected orthographically onto that plane, using (x, y), (y, z) or (x, z). This is the main depth cue.
 - **Layer band:** edge glow `smoothstep(0.12, 0, |z − z_edge|)·(0.6 + 0.4 sin 6t)`.
 - **Clear flash:** a bitmask `(mask >> z) & 1` marks the layers being cleared, with pulse `sin(πt)`.
-- **Height fog:** `f = clamp(z/H)²·0.85`. The top of the well fades into the backdrop horizon colour, and the same colour is used as the cube fog, so there is no visible seam.
+- **Height fade:** `alpha ·= 1 − 0.6·clamp(z/H)²`. The top of the well fades to transparent rather than into a tint, so there is no coloured band.
 
 ### 8.6 Ghost, particles and grade (`shaders/effects.glsl.ts`)
 
@@ -457,9 +474,9 @@ When the shader backdrop is chosen, a preset is drawn per round: Typhoon has a 5
 
 - **Engine:** Vite + strict TypeScript, Three.js with hand-written shaders; fixed 60 Hz simulation, rendering only writes visuals.
 - **3D pieces:** 8 free tetracubes; J and Z dropped as duplicates of L and S in 3D.
-- **Camera:** custom orbit rig (drag, pitch 15–75°, Q/E snaps); arrow input is remapped to the camera quadrant. OrbitControls was not used.
+- **Camera:** custom orbit rig (drag, pitch 15–75°, Q/E snaps to views ≈20° off a wall); arrows map to the grid axis closest to screen right / away for the live camera yaw. OrbitControls was not used.
 - **Physics:** no physics library; grid logic is discrete and cosmetic motion uses springs.
-- **Well:** 10×10×10 on every difficulty, drawn back-faces-only with alpha 0.28 so the backdrop and stack show through.
+- **Well:** 10×10×10 on every difficulty, drawn back-faces-only as neutral smoked glass so the backdrop and stack show through. 2D uses the same renderer with a 10×20×1 board and a locked front camera.
 - **Falling preview:** its own small canvas and WebGL renderer copying the main camera's orientation at distance 7, rebuilt only when the piece shape changes.
 - **Database:** MongoDB 7 with the official driver; Fastify 5 + Zod at the edge.
 - **Identity (security limitation):** nickname only, no authentication. Names are unverified and a determined user can post fake but plausible scores; the UI labels it a "casual ranking". Upgrade path: submit the input log + seed and replay the deterministic domain layer on the server.

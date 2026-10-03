@@ -1,4 +1,5 @@
 import { ObjectId, type Collection, type Db, type Filter, type Sort } from 'mongodb';
+import type { Dimension } from '../../shared/contracts';
 import type { NewRoundRecord, RoundRecord } from '../domain/round';
 import {
   rankingSortsAscending,
@@ -8,7 +9,11 @@ import {
 } from './round-repository';
 
 /** Stored shape; `linesCleared` is optional because older rounds predate row clears. */
-type RoundDocument = Omit<NewRoundRecord, 'linesCleared'> & { _id: ObjectId; linesCleared?: number };
+type RoundDocument = Omit<NewRoundRecord, 'linesCleared' | 'dimension'> & {
+  _id: ObjectId;
+  linesCleared?: number;
+  dimension?: Dimension;
+};
 
 export class MongoRoundRepository implements RoundRepository {
   private readonly rounds: Collection<RoundDocument>;
@@ -20,10 +25,14 @@ export class MongoRoundRepository implements RoundRepository {
   /** Each index matches one query shape below, so rankings and history never full-scan. */
   async ensureIndexes(): Promise<void> {
     await this.rounds.createIndexes([
-      { key: { mode: 1, difficulty: 1, flagged: 1, score: -1, _id: -1 }, name: 'ranking_score' },
+      // v2 names: the key spec gained `dimension`, and Mongo refuses to redefine an existing name.
       {
-        key: { mode: 1, difficulty: 1, flagged: 1, completed: 1, durationMs: 1, _id: 1 },
-        name: 'ranking_time',
+        key: { mode: 1, difficulty: 1, dimension: 1, flagged: 1, score: -1, _id: -1 },
+        name: 'ranking_score_v2',
+      },
+      {
+        key: { mode: 1, difficulty: 1, dimension: 1, flagged: 1, completed: 1, durationMs: 1, _id: 1 },
+        name: 'ranking_time_v2',
       },
       { key: { playerNameLower: 1, _id: -1 }, name: 'player_history' },
     ]);
@@ -38,7 +47,13 @@ export class MongoRoundRepository implements RoundRepository {
   async findRanking(filter: RankingFilter): Promise<RoundRecord[]> {
     const ascending = rankingSortsAscending(filter.mode);
     const field = ascending ? 'durationMs' : 'score';
-    const query: Filter<RoundDocument> = { mode: filter.mode, difficulty: filter.difficulty, flagged: false };
+    const query: Filter<RoundDocument> = {
+      mode: filter.mode,
+      difficulty: filter.difficulty,
+      // Rounds stored before the 2D mode have no `dimension` and belong to the 3D board.
+      dimension: filter.dimension === '2d' ? '2d' : { $ne: '2d' },
+      flagged: false,
+    };
     if (ascending) query.completed = true;
     if (filter.since) query.playedAt = { $gte: filter.since };
     if (filter.after) {
@@ -71,6 +86,6 @@ export class MongoRoundRepository implements RoundRepository {
   }
 }
 
-function toRecord({ _id, linesCleared, ...rest }: RoundDocument): RoundRecord {
-  return { ...rest, linesCleared: linesCleared ?? 0, id: _id.toHexString() };
+function toRecord({ _id, linesCleared, dimension, ...rest }: RoundDocument): RoundRecord {
+  return { ...rest, linesCleared: linesCleared ?? 0, dimension: dimension ?? '3d', id: _id.toHexString() };
 }

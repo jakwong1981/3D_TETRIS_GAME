@@ -11,9 +11,9 @@
     <canvas id="scene" aria-label="3D tetracube well"></canvas>
 
     <p class="legend" id="legend">
-      ←→↑↓ move · A / S / Z rotate X / Y / Z axis (Shift = reverse) · Shift soft drop · Space hard drop · C
-      hold · Q / E or drag camera · R reset · Esc pause · M music · Full X/Y row clears, same-colour row ×2 /
-      XY ×4 / XYZ ×8
+      ←→↑↓ move · X rotate vertical · Z rotate horizontal · Shift soft drop · Space hard drop · C hold · Q / E
+      or drag camera · R reset · Esc pause · M music · Full X/Y row clears, same-colour row ×2 / XY ×4 / XYZ
+      ×8
     </p>
 
     <aside class="hud" id="hud" aria-live="polite" hidden>
@@ -76,6 +76,13 @@
         </label>
         <p class="error" id="name-error" role="alert"></p>
         <label
+          >View
+          <select id="dimension">
+            <option value="3d">3D · 10×10×10 well</option>
+            <option value="2d">2D · classic 10×20 board</option>
+          </select>
+        </label>
+        <label
           >Mode
           <select id="mode">
             <option value="marathon">Marathon</option>
@@ -86,9 +93,9 @@
         <label id="difficulty-field"
           >Difficulty
           <select id="difficulty">
-            <option value="easy">Easy · 10×10</option>
-            <option value="normal" selected>Normal · 10×10</option>
-            <option value="hard">Hard · 10×10</option>
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
           </select>
         </label>
         <label
@@ -126,6 +133,10 @@
     <section class="panel wide" id="ranking" hidden aria-labelledby="ranking-title">
       <h2 id="ranking-title">Rankings</h2>
       <div class="filters">
+        <select id="rank-dimension" aria-label="View">
+          <option value="3d">3D</option>
+          <option value="2d">2D</option>
+        </select>
         <select id="rank-mode" aria-label="Mode">
           <option value="marathon">Marathon</option>
           <option value="sprint">Sprint</option>

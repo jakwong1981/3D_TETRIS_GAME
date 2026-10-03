@@ -56,6 +56,7 @@ export class Grid {
    * lists every full row (also those inside full layers) for the same-colour bonus.
    */
   findClears(rowClears: boolean): ClearPlan {
+    if (this.depth === 1) return this.findPlanarClears();
     const layers: number[] = [];
     const rows: ClearedRow[] = [];
     const marked = new Set<number>();
@@ -150,6 +151,22 @@ export class Grid {
       y: Math.floor(i / this.width) % this.depth,
       z: Math.floor(i / this.layerArea),
     };
+  }
+
+  /**
+   * Classic 2D board (depth 1): a "layer" is a single X row, so a full one counts as a line, not
+   * as a 3D layer bonus. Y "rows" would be one cell long and are never considered.
+   */
+  private findPlanarClears(): ClearPlan {
+    const rows: ClearedRow[] = [];
+    for (let z = 0; z < this.height; z++) {
+      const row = this.fullRow(
+        'x',
+        Array.from({ length: this.width }, (_, x) => ({ x, y: 0, z })),
+      );
+      if (row) rows.push(row);
+    }
+    return { layers: [], lines: rows.length, cells: rows.flatMap((r) => r.cells), rows };
   }
 
   /** The row if every cell is filled; `colour` is the shared cell value, or null if mixed. */

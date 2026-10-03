@@ -4,7 +4,13 @@ import { PUZZLES } from '../../src/game/domain/puzzles';
 import { vec3 } from '../../src/game/domain/vec3';
 
 function puzzleSession(index: number): { session: GameSession; events: SessionEvent[] } {
-  const session = new GameSession({ mode: 'puzzle', difficulty: 'easy', seed: 1, puzzleIndex: index });
+  const session = new GameSession({
+    mode: 'puzzle',
+    difficulty: 'easy',
+    dimension: '3d',
+    seed: 1,
+    puzzleIndex: index,
+  });
   const events: SessionEvent[] = [];
   session.onEvent((e) => events.push(e));
   return { session, events };
@@ -45,7 +51,13 @@ describe('GameSession', () => {
   });
 
   it('clears a same-colour row in marathon with the ×2 bonus and credits a line', () => {
-    const session = new GameSession({ mode: 'marathon', difficulty: 'easy', seed: 5, puzzleIndex: 0 });
+    const session = new GameSession({
+      mode: 'marathon',
+      difficulty: 'easy',
+      dimension: '3d',
+      seed: 5,
+      puzzleIndex: 0,
+    });
     const events: SessionEvent[] = [];
     session.onEvent((e) => events.push(e));
     // A full single-colour X row on the floor at the back edge, away from where pieces land.
@@ -62,7 +74,13 @@ describe('GameSession', () => {
   });
 
   it('ends a marathon when the stack tops out', () => {
-    const session = new GameSession({ mode: 'marathon', difficulty: 'easy', seed: 3, puzzleIndex: 0 });
+    const session = new GameSession({
+      mode: 'marathon',
+      difficulty: 'easy',
+      dimension: '3d',
+      seed: 3,
+      puzzleIndex: 0,
+    });
     for (let i = 0; i < 200 && session.phase !== 'over'; i++) {
       session.hardDrop();
       runClearAnimation(session);
@@ -72,7 +90,13 @@ describe('GameSession', () => {
   });
 
   it('pauses and resumes without advancing time', () => {
-    const session = new GameSession({ mode: 'marathon', difficulty: 'normal', seed: 3, puzzleIndex: 0 });
+    const session = new GameSession({
+      mode: 'marathon',
+      difficulty: 'normal',
+      dimension: '3d',
+      seed: 3,
+      puzzleIndex: 0,
+    });
     session.togglePause();
     session.fixedUpdate(1);
     expect(session.elapsed).toBe(0);
@@ -82,7 +106,13 @@ describe('GameSession', () => {
   });
 
   it('allows one hold per piece', () => {
-    const session = new GameSession({ mode: 'marathon', difficulty: 'normal', seed: 9, puzzleIndex: 0 });
+    const session = new GameSession({
+      mode: 'marathon',
+      difficulty: 'normal',
+      dimension: '3d',
+      seed: 9,
+      puzzleIndex: 0,
+    });
     const first = session.piece?.kind;
     session.hold();
     const second = session.piece?.kind;

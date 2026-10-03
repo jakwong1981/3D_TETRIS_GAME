@@ -42,6 +42,7 @@ export class RoundService {
     const rows = await this.repository.findRanking({
       mode: query.mode,
       difficulty: query.difficulty,
+      dimension: query.dimension,
       since,
       limit: query.limit + 1,
       after,
@@ -96,6 +97,7 @@ function toResponse(record: RoundRecord): RoundResponse {
     playerName: record.playerName,
     mode: record.mode,
     difficulty: record.difficulty,
+    dimension: record.dimension,
     score: record.score,
     layersCleared: record.layersCleared,
     linesCleared: record.linesCleared,
